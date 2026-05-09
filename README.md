@@ -2,6 +2,8 @@
 
 A zero-knowledge end-to-end encrypted pastebin. Your content is encrypted client-side using AES-GCM 256-bit before touching the server. The server is completely blind to your data — it only stores encrypted ciphertext.
 
+Copyright (C) 2026 Nikirack. Licensed under the [AGPL-3.0](LICENSE).
+
 ## Features
 
 - **Client-side encryption** — AES-GCM 256-bit encryption happens entirely in your browser
