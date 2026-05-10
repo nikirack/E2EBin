@@ -9,11 +9,10 @@ export default function Footer() {
         nikirack
       </a>
       {" · "}
-      This project is open source{" "}
       <a
-        href="#"
+        href="https://github.com/nikirack/E2EBin"
         className="underline"
-      >code</a>
+      >This project is open source</a>
       {" · "}
       <a
         href="/tos"
