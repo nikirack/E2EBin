@@ -15,47 +15,51 @@ async function decryptContent(ciphertext: string, iv: string, key: CryptoKey): P
   return new TextDecoder().decode(decrypted)
 }
 
+interface ErrorWithReset {
+  message: string
+  resetAt?: number
+}
+
 export default function PastePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [content, setContent] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  const [copied, setCopied] = useState(false);
-
+  const [apiError, setApiError] = useState<ErrorWithReset | null>(null)
+  const [copied, setCopied] = useState(false)
   const [isBurned, setIsBurned] = useState(false)
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
   const [hadTimer, setHadTimer] = useState(false)
-
+  const [rateLimitTime, setRateLimitTime] = useState<number | null>(null)
 
   const copyCurrentUrl = async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-
-      setTimeout(() => {
-        setCopied(false);
-      }, 2000);
+      await navigator.clipboard.writeText(window.location.href)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      console.error("Failed to copy URL:", err);
+      console.error("Failed to copy URL:", err)
     }
-  };
+  }
 
   useEffect(() => {
     async function load() {
       try {
         const keyStr = window.location.hash.slice(1)
-        if (!keyStr) { setError('No key in URL'); return }
+        if (!keyStr) { setApiError({ message: 'No key in URL' }); return }
 
         const res = await fetch(`/api/pastes/${id}`)
-        if (!res.ok) { setError('Paste not found or expired'); return }
+        const data = await res.json()
 
-        const { ciphertext, iv, burned, createdAt } = await res.json()
+        if (!res.ok) {
+          setApiError({ message: data.error, resetAt: data.resetAt })
+          return
+        }
+
         const key = await importKey(keyStr)
-        const plaintext = await decryptContent(ciphertext, iv, key)
-        if (burned) {
+        const plaintext = await decryptContent(data.ciphertext, data.iv, key)
+        if (data.burned) {
           setIsBurned(true)
           const now = Math.floor(Date.now() / 1000)
-          const age = now - createdAt
+          const age = now - data.createdAt
           const burnAfterSeconds = 10
           if (age < burnAfterSeconds) {
             setTimeLeft(burnAfterSeconds - age)
@@ -64,11 +68,25 @@ export default function PastePage({ params }: { params: Promise<{ id: string }> 
         }
         setContent(plaintext)
       } catch {
-        setError('Failed to decrypt — wrong key or corrupted paste')
+        setApiError({ message: 'Failed to decrypt — wrong key or corrupted paste' })
       }
     }
     load()
   }, [id])
+
+  useEffect(() => {
+    if (apiError?.resetAt) {
+      const updateTimer = () => {
+        const remaining = Math.max(0, Math.ceil((apiError.resetAt! - Date.now()) / 1000))
+        if (remaining > 0) {
+          setRateLimitTime(remaining)
+        }
+      }
+      updateTimer()
+      const interval = setInterval(updateTimer, 1000)
+      return () => clearInterval(interval)
+    }
+  }, [apiError])
 
   useEffect(() => {
     if (timeLeft === null || timeLeft <= 0) return
@@ -84,11 +102,14 @@ export default function PastePage({ params }: { params: Promise<{ id: string }> 
     return () => clearInterval(interval)
   }, [timeLeft])
 
-  if (error) return (
+  if (apiError && !content) return (
     <main className="relative max-w-3xl mx-auto mt-28 px-6 pb-8">
       <div className="border-2 border-black p-6 bg-white">
         <p className="text-xs font-bold uppercase tracking-widest mb-3">Error</p>
-        <p className="text-xs leading-relaxed">{error}</p>
+        <p className="text-xs leading-relaxed">{apiError.message}</p>
+        {rateLimitTime !== null && rateLimitTime > 0 && (
+          <p className="text-xs text-neutral-500 mt-2">Rate limit resets in {rateLimitTime}s</p>
+        )}
       </div>
       <a href="/" className="inline-block px-4 py-3 border-2 border-black bg-white text-black font-bold uppercase text-xs tracking-wider cursor-pointer transition-all duration-200 no-underline mt-4">← New paste</a>
     </main>
@@ -117,7 +138,7 @@ export default function PastePage({ params }: { params: Promise<{ id: string }> 
       </header>
       <div className="border-2 border-black p-6 bg-white transition-all duration-200">
         <div className="prose max-w-none">
-          <ReactMarkdown>{content}</ReactMarkdown>
+          <ReactMarkdown skipHtml>{content}</ReactMarkdown>
         </div>
       </div>
       <a href="/" className="inline-block px-4 py-3 border-2 border-black bg-white text-black font-bold uppercase text-xs tracking-wider cursor-pointer transition-all duration-200 no-underline mt-3">← New paste</a>

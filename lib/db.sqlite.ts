@@ -11,19 +11,19 @@ sqlite.exec(`
     content TEXT NOT NULL,
     iv TEXT NOT NULL,
     burnAfterRead INTEGER DEFAULT 0,
-    createdAt INTEGER DEFAULT (strftime('%s', 'now'))
-  )
+    createdAt INTEGER
+  );
 `)
 
 export default {
-  createPaste(id: string, ciphertext: string, iv: string, burnAfterRead: boolean, createdAt: number) {
+  async createPaste(id: string, ciphertext: string, iv: string, burnAfterRead: boolean, createdAt: number): Promise<void> {
     sqlite.prepare(`INSERT INTO pastes (id, content, iv, burnAfterRead, createdAt) VALUES (?, ?, ?, ?, ?)`)
       .run(id, ciphertext, iv, burnAfterRead ? 1 : 0, createdAt)
   },
-  getPaste(id: string) {
+  async getPaste(id: string): Promise<Paste | null> {
     return sqlite.prepare(`SELECT * FROM pastes WHERE id = ?`).get(id) as Paste | null
   },
-  deletePaste(id: string) {
+  async deletePaste(id: string): Promise<void> {
     sqlite.prepare(`DELETE FROM pastes WHERE id = ?`).run(id)
   }
 }

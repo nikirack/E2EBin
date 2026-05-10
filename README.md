@@ -32,7 +32,16 @@ When someone opens the link, the key (from the URL fragment) decrypts the conten
 
 1. Fork or clone this repository
 2. Create a Neon database
-3. In the Neon dashboard, copy the connection string
+3. In the Neon dashboard, copy the connection string and create a new sql table using:
+   ``` sql
+   CREATE TABLE IF NOT EXISTS pastes (
+   id TEXT PRIMARY KEY,
+   content TEXT NOT NULL,
+   iv TEXT NOT NULL,
+   burn_after_read INTEGER DEFAULT 0,
+   created_at INTEGER
+   );
+   ```
 4. Deploy to Vercel:
    ```bash
    npx vercel
